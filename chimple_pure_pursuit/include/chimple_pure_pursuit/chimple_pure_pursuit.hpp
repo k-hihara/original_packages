@@ -60,14 +60,14 @@ class ChimplePurePursuit : public rclcpp::Node {
   bool subscribeMessageAvailable();
   void calc_longi_cmd();
   void calc_lat_cmd();
-  double vel_kappa_check();
+  double vel_curvature_check();
   double current_longitudinal_vel_;
   double target_longitudinal_vel_;
   double lookahead_distance_;
   double lookahehad_max_distance_=80;
-  double kappa_;
+  double curvature_;
   double omega_;
-  double kappa_limited_vel(double kappa);
+  double curvature_limited_vel(double curvature);
   double calc_curvature(size_t idx);
   AckermannControlCommand cmd_;
   size_t closest_traj_point_idx_;
@@ -82,11 +82,11 @@ class ChimplePurePursuit : public rclcpp::Node {
   double target_curvature_;
   double straight_curvature_ = 0.00001;
   double judge_curvature_=1.0/200;
-  double s_vel_mps_=45/3.6;
+  double s_vel_mps_=40/3.6;
   bool left_curve_ =false;
   bool right_curve_ =false;
   double max_curvature_;
-  double str_gain_=1.5;
+  double str_gain_=2.0;//1.8
   size_t diff_calc_curvature_=2;
 };
 

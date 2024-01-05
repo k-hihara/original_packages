@@ -81,8 +81,8 @@ void ChimplePurePursuit::onTimer()
     //calc_cmd;
     calc_longi_cmd();
     calc_lat_cmd();
-    //std::cout<<"target "<<target_longitudinal_vel_<<" mps,  curvature_rad "<<1/kappa_<<" , kappa"<<kappa_<<std::endl;
-    //std::cout<<"kappa_limited_vel "<<kappa_limited_vel()<<std::endl;
+    //std::cout<<"target "<<target_longitudinal_vel_<<" mps,  curvature_rad "<<1/curvature_<<" , curvature"<<curvature_<<std::endl;
+    //std::cout<<"curvature_limited_vel "<<curvature_limited_vel()<<std::endl;
   }
   pub_cmd_->publish(cmd_);
   gen_planned_path();
@@ -133,7 +133,7 @@ void ChimplePurePursuit::calc_longi_cmd(){
     }
   }
   //std::cout<<max_curvature_ind<<" curvature_rad = "<<1/max_curvature_<<std::endl;
-  min_future_target_vel=std::min(min_future_target_vel,kappa_limited_vel(calc_curvature(closest_traj_point_idx_+future_curvature_predict_idx_)));
+  min_future_target_vel=std::min(min_future_target_vel,curvature_limited_vel(calc_curvature(closest_traj_point_idx_+future_curvature_predict_idx_)));
   if(left_curve_&&right_curve_)min_future_target_vel=std::min(min_future_target_vel,s_vel_mps_);
   //if(left_curve_&&right_curve_)std::cout<<"s curve"<<std::endl;
   target_longitudinal_vel_=min_future_target_vel;
@@ -195,23 +195,24 @@ void ChimplePurePursuit::calc_lat_cmd(){
   double str_gain_tmp=std::max(str_gain_,str_gain_*(std::min(1.0,current_longitudinal_vel_/100)));
   cmd_.lateral.steering_tire_angle =std::atan2(2.0 * wheel_base_ * std::sin(alpha), dist_to_lookahead_point)*str_gain_tmp;
   //cmd_.lateral.steering_tire_angle =std::atan2(2.0 * wheel_tred_ * std::sin(alpha), dist_to_lookahead_point);
-  kappa_ = (2*current_longitudinal_vel_*sin(alpha))/dist_to_lookahead_point;
+  curvature_ = (2*current_longitudinal_vel_*sin(alpha))/dist_to_lookahead_point;
   omega_=2*current_longitudinal_vel_*sin(alpha)/lookahead_distance_;
   //std::cout<<"dist to look ahead point: "<<dist_to_lookahead_point<<" , closest_traj_point_idx_: "<<closest_traj_point_idx_<<std::endl;
   //std::cout<<"closest_traj_point_idx_: "<<closest_traj_point_idx_<<" , lookahead_point_itr: "<<lookahead_point_itr<<std::endl;
 
 }
 
-double ChimplePurePursuit::kappa_limited_vel(double kappa){
-  //speed[kmph],curvature[kappa] table
+double ChimplePurePursuit::curvature_limited_vel(double curvature){
+  //speed[kmph],curvature[curvature] table
   //const double design_speeds[] = {250,180,150,130, 120, 100, 80, 60, 50, 40, 30, 20, 10, 5};
-  const double design_speeds[] = {250, 100, 100, 100, 100, 100, 90, 70, 70, 70, 70, 70, 70, 70};
-  const double design_kappas[] = {straight_curvature_,1.0/3000,1.0/2000,1.0/1200, 1.0 / 1000, 1.0 / 700, 1.0 / 400, 1.0 / 200, 1.0 / 150, 1.0 / 100, 1.0 / 65, 1.0 / 30, 1.0/20, 1.0/10};
+  const double design_speeds[] = {250, 100, 100, 100, 100, 100, 90, 90, 90, 70, 70, 70, 70, 70};
+  //const double design_speeds[] = {250, 100, 100, 100, 100, 100, 90, 70, 70, 70, 70, 70, 70, 70};
+  const double design_curvatures[] = {straight_curvature_,1.0/3000,1.0/2000,1.0/1200, 1.0 / 1000, 1.0 / 700, 1.0 / 400, 1.0 / 200, 1.0 / 150, 1.0 / 100, 1.0 / 65, 1.0 / 30, 1.0/20, 1.0/10};
   //find_nearest_curvature
   int closest_index = 0;
-  double min_diff = std::abs(abs(kappa) - design_kappas[0]);
+  double min_diff = std::abs(abs(curvature) - design_curvatures[0]);
   for (size_t i = 1; i < sizeof(design_speeds)/sizeof(design_speeds[0]); ++i) {
-      double diff = std::abs(abs(kappa) - design_kappas[i]);
+      double diff = std::abs(abs(curvature) - design_curvatures[i]);
       if (diff < min_diff) {
           min_diff = diff;
           closest_index = i;
@@ -220,7 +221,7 @@ double ChimplePurePursuit::kappa_limited_vel(double kappa){
   //std::cout<<"curvature closest_index: "<<closest_index<<std::endl;
   //kmph2mps
   double design_speed_mps = design_speeds[closest_index] / 3.6;
-  //double limited_vel = design_speed_mps / (1 + std::abs(kappa_ * design_speed_mps));
+  //double limited_vel = design_speed_mps / (1 + std::abs(curvature_ * design_speed_mps));
   double limited_vel=design_speed_mps;
   return limited_vel;
 }
@@ -240,24 +241,6 @@ double ChimplePurePursuit::calc_curvature(size_t idx){
   // Calculate curvature
   double curvature = 2.0 * crossProduct / (len1 * len2 * (len1 + len2));
   return curvature;
-  /*
-  if(idx>129)return straight_curvature_;;//end point straight
-  TrajectoryPoint dst,src,next;
-  double alpha,dist,theta,curvature_rad;
-  double min_curvature_rad=1/straight_curvature_;
-  for(size_t i=idx;i<idx+future_curvature_predict_idx_;i++){
-    dst=trajectory_->points.at(i+future_curvature_predict_idx_);
-    src=trajectory_->points.at(i);
-    next=trajectory_->points.at(i+1);
-    theta = std::atan2(next.pose.position.y-src.pose.position.y,next.pose.position.x-src.pose.position.x);
-    alpha = std::atan2(dst.pose.position.y-src.pose.position.y,dst.pose.position.x-src.pose.position.x)-theta;
-    dist = hypot(dst.pose.position.y-src.pose.position.y,dst.pose.position.x-src.pose.position.x);
-    curvature_rad=dist/(2*sin(alpha));
-    min_curvature_rad=std::min(min_curvature_rad,curvature_rad);
-  }
-  std::cout<<"rad" << min_curvature_rad<<std::endl;
-  return 1/min_curvature_rad;
-  */
 }
 
 void ChimplePurePursuit::gen_planned_path(){

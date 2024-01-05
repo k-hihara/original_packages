@@ -48,7 +48,6 @@ void PathOptimizer::onTimer()
     return;
   }
 
-  //std::cout<<"object: "<<objects_->objects.size()<<std::endl;
   //copy trajectory
   opt_trajectory_ = *trajectory_;
   path_smoothing(300);
@@ -86,7 +85,6 @@ void PathOptimizer::path_smoothing(int max_times){
       opt_trajectory_.points.at(i).pose.position.y -= w_smooth_ * (2 * opt_trajectory_.points.at(i).pose.position.y - opt_trajectory_.points.at(i-1).pose.position.y - opt_trajectory_.points.at(i+1).pose.position.y);
       change += hypot(opt_trajectory_.points.at(i).pose.position.x- origin_traj.points.at(i).pose.position.x,opt_trajectory_.points.at(i).pose.position.y- origin_traj.points.at(i).pose.position.y);
     }
-    //std::cout<<"change"<<change<<std::endl;
   }
   //std::cout<<"smoothing cnt:" << count<<std::endl;
 }
